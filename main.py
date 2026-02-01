@@ -303,28 +303,28 @@ def analyze_device(device_type: str, os_version: str, extra: Optional[str]):
 
 
 # ---------------- EMAIL ANALYSIS LOGIC ----------------
-def has_spf(domain):
-    """Check if domain has a valid SPF record"""
+def has_spf(domain: str) -> bool:
     try:
         records = dns.resolver.resolve(domain, "TXT")
         for r in records:
             if "v=spf1" in str(r):
                 return True
     except Exception:
-        pass
+        return False
     return False
 
 
-def has_dmarc(domain):
-    """Check if domain has a valid DMARC record"""
+
+def has_dmarc(domain: str) -> bool:
     try:
         records = dns.resolver.resolve(f"_dmarc.{domain}", "TXT")
         for r in records:
             if "v=DMARC1" in str(r):
                 return True
     except Exception:
-        pass
+        return False
     return False
+
 
 
 def check_breach_exposure(email):
@@ -333,24 +333,12 @@ def check_breach_exposure(email):
     # Requires API key - use environment variables in production
     return False
 
-def analyze_email(email: str):
+@app.post("/email-scan", response_model=EmailScanResponse)
+def email_scan(request: EmailScanRequest):
+    email = request.email
     findings = []
     recommendations = []
     rating = 5
-
-    # Validate email format
-    if not email or "@" not in email:
-        return {
-            "email": email,
-            "rating": 1,
-            "risk": "Critical Risk",
-            "findings": [{
-                "title": "Invalid Email Format",
-                "severity": "Critical",
-                "description": "Email address format is invalid."
-            }],
-            "recommendations": ["Enter a valid email address."]
-        }
 
     domain = email.split("@")[1]
 
@@ -372,35 +360,23 @@ def analyze_email(email: str):
             "recommendations": ["Avoid disposable email addresses."]
         }
 
-    # SPF check
     if not has_spf(domain):
         rating -= 1
         findings.append({
             "title": "Missing SPF Record",
             "severity": "Medium",
-            "description": "SPF record not found. Email spoofing is possible."
+            "description": "SPF record not found."
         })
-        recommendations.append("Configure SPF to authorize sending mail servers.")
+        recommendations.append("Configure SPF record.")
 
-    # DMARC check
     if not has_dmarc(domain):
         rating -= 1
         findings.append({
             "title": "Missing DMARC Policy",
             "severity": "High",
-            "description": "DMARC is not configured."
+            "description": "DMARC policy not found."
         })
-        recommendations.append("Configure DMARC policy to protect your domain.")
-
-    public_providers = [
-        "gmail.com", "yahoo.com", "outlook.com",
-        "hotmail.com", "icloud.com"
-    ]
-
-    if domain in public_providers:
-        recommendations.append("Enable two-factor authentication (2FA).")
-    else:
-        recommendations.append("Ensure strong organizational email security policies.")
+        recommendations.append("Configure DMARC policy.")
 
     rating = max(1, min(5, rating))
 
@@ -417,11 +393,8 @@ def analyze_email(email: str):
         "rating": rating,
         "risk": risk_map[rating],
         "findings": findings,
-        "recommendations": recommendations
+        "recommendations": recommendations or ["No major issues found"]
     }
-
-
-
 
 # ---------------- WEBSITE SCAN ENDPOINT ----------------
 @app.post("/scan", response_model=ScanResponse)
@@ -489,4 +462,5 @@ def email_scan(request: EmailScanRequest):
     result = analyze_email(request.email)
 
     return EmailScanResponse(**result)
+
 
