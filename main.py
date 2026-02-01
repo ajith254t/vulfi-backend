@@ -456,14 +456,3 @@ def device_scan(request: DeviceScanRequest):
     )
 
     return DeviceScanResponse(**result)
-
-
-# ---------------- EMAIL SCAN ENDPOINT ----------------
-@app.post("/email-scan", response_model=EmailScanResponse)
-def email_scan(request: EmailScanRequest):
-    result = analyze_email(request.email)
-
-    return EmailScanResponse(**result)
-
-
-
