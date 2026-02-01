@@ -10,7 +10,8 @@ from typing import List, Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, EmailStr
+
 
 # ---------------- APP SETUP ----------------
 app = FastAPI(title="VULFI API")
@@ -332,10 +333,7 @@ def check_breach_exposure(email):
     # This would integrate with services like Have I Been Pwned
     # Requires API key - use environment variables in production
     return False
-
-@app.post("/email-scan", response_model=EmailScanResponse)
-def email_scan(request: EmailScanRequest):
-    email = request.email
+def analyze_email(email: str):
     findings = []
     recommendations = []
     rating = 5
@@ -395,6 +393,10 @@ def email_scan(request: EmailScanRequest):
         "findings": findings,
         "recommendations": recommendations or ["No major issues found"]
     }
+@app.post("/email-scan", response_model=EmailScanResponse)
+def email_scan(request: EmailScanRequest):
+    result = analyze_email(request.email)
+    return EmailScanResponse(**result)
 
 # ---------------- WEBSITE SCAN ENDPOINT ----------------
 @app.post("/scan", response_model=ScanResponse)
@@ -462,5 +464,6 @@ def email_scan(request: EmailScanRequest):
     result = analyze_email(request.email)
 
     return EmailScanResponse(**result)
+
 
 
