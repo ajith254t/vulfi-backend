@@ -17,7 +17,7 @@ app = FastAPI(title="VULFI API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # change to "*" in production
+    allow_origins=["*"],  # change to "*" in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -499,4 +499,5 @@ def device_scan(request: DeviceScanRequest):
 @app.post("/email-scan", response_model=EmailScanResponse)
 def email_scan(request: EmailScanRequest):
     result = analyze_email(request.email)
+
     return EmailScanResponse(**result)
