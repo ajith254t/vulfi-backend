@@ -68,12 +68,6 @@ class EmailScanRequest(BaseModel):
     email:EmailStr
 
 
-class EmailFinding(BaseModel):
-    title: str
-    severity: str
-    description: str
-
-
 class EmailScanResponse(BaseModel):
     email: str
     rating: int
@@ -495,3 +489,4 @@ def email_scan(request: EmailScanRequest):
     result = analyze_email(request.email)
 
     return EmailScanResponse(**result)
+
