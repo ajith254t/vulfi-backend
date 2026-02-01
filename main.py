@@ -65,7 +65,7 @@ class DeviceScanResponse(BaseModel):
 
 # ---------------- EMAIL SCAN MODELS ----------------
 class EmailScanRequest(BaseModel):
-    email: str
+    email:EmailStr
 
 
 class EmailFinding(BaseModel):
@@ -78,8 +78,8 @@ class EmailScanResponse(BaseModel):
     email: str
     rating: int
     risk: str
-    findings: List[EmailFinding]
-    recommendations: List[str]
+    findings: List
+    recommendations: List
 
 
 # ---------------- SCORING LOGIC ----------------
@@ -339,15 +339,27 @@ def check_breach_exposure(email):
     # Requires API key - use environment variables in production
     return False
 
-
 def analyze_email(email: str):
     findings = []
     recommendations = []
     rating = 5
 
-    domain = email.split("@")[-1]
+    # Validate email format
+    if not email or "@" not in email:
+        return {
+            "email": email,
+            "rating": 1,
+            "risk": "Critical Risk",
+            "findings": [{
+                "title": "Invalid Email Format",
+                "severity": "Critical",
+                "description": "Email address format is invalid."
+            }],
+            "recommendations": ["Enter a valid email address."]
+        }
 
-    # Check for disposable email domains
+    domain = email.split("@")[1]
+
     disposable_domains = [
         "tempmail.com", "10minutemail.com", "mailinator.com",
         "guerrillamail.com", "yopmail.com"
@@ -358,64 +370,44 @@ def analyze_email(email: str):
             "email": email,
             "rating": 1,
             "risk": "Critical Risk",
-            "findings": [EmailFinding(
-                title="Disposable Email Address",
-                severity="Critical",
-                description="Disposable email detected."
-            )],
+            "findings": [{
+                "title": "Disposable Email Address",
+                "severity": "Critical",
+                "description": "Disposable email detected."
+            }],
             "recommendations": ["Avoid disposable email addresses."]
         }
 
-    # Check SPF record
-    spf = has_spf(domain)
-    if not spf:
+    # SPF check
+    if not has_spf(domain):
         rating -= 1
-        findings.append(EmailFinding(
-            title="Missing SPF Record",
-            severity="Medium",
-            description="SPF record not found. Email spoofing is possible."
-        ))
+        findings.append({
+            "title": "Missing SPF Record",
+            "severity": "Medium",
+            "description": "SPF record not found. Email spoofing is possible."
+        })
         recommendations.append("Configure SPF to authorize sending mail servers.")
 
-    # Check DMARC record
-    dmarc = has_dmarc(domain)
-    if not dmarc:
+    # DMARC check
+    if not has_dmarc(domain):
         rating -= 1
-        findings.append(EmailFinding(
-            title="Missing DMARC Policy",
-            severity="High",
-            description="DMARC is not configured, increasing phishing and spoofing risk."
-        ))
+        findings.append({
+            "title": "Missing DMARC Policy",
+            "severity": "High",
+            "description": "DMARC is not configured."
+        })
         recommendations.append("Configure DMARC policy to protect your domain.")
 
-    # Public provider vs custom domain awareness
     public_providers = [
         "gmail.com", "yahoo.com", "outlook.com",
         "hotmail.com", "icloud.com"
     ]
 
     if domain in public_providers:
-        recommendations.append(
-            "Enable two-factor authentication (2FA) on your email account."
-        )
+        recommendations.append("Enable two-factor authentication (2FA).")
     else:
-        recommendations.append(
-            "Ensure your organization enforces strong email security policies."
-        )
+        recommendations.append("Ensure strong organizational email security policies.")
 
-    # Optional: Check for breach exposure
-    if check_breach_exposure(email):
-        rating -= 1
-        findings.append(EmailFinding(
-            title="Email Found in Public Data Breach",
-            severity="High",
-            description="This email address has appeared in known data breaches."
-        ))
-        recommendations.append(
-            "Change passwords on affected services and enable MFA."
-        )
-
-    # Normalize rating to 1-5 range
     rating = max(1, min(5, rating))
 
     risk_map = {
@@ -433,6 +425,8 @@ def analyze_email(email: str):
         "findings": findings,
         "recommendations": recommendations
     }
+
+
 
 
 # ---------------- WEBSITE SCAN ENDPOINT ----------------
